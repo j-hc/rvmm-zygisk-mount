@@ -1,0 +1,7 @@
+/*.sh
+/*.c
+policy
+*.zip
+*.so
+*.log
+.clangd
