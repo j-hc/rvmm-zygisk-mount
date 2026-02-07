@@ -95,7 +95,7 @@ class RVMMZygiskMount : public zygisk::ModuleBase {
         }
 
         if (size <= 0) {
-            LOGD("ERROR read_companion: size=%zu", size);
+            LOGD("ERROR read_companion: size=%ld", size);
             return 0;
         }
 

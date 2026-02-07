@@ -1,0 +1,4 @@
+*.mk
+libs
+obj
+*.sh

@@ -13,7 +13,6 @@ Fixes problems such as,
 - Make sure the modules of whichever app you want is installed from [revanced-magisk-module](revanced-magisk-module)
 - Flash rvmm-zygisk-mount module. It will automatically take care of everything
 - ! **Do not** put the patched apps you want in the denylist !
-- ! **Uncheck** "Unmount modules" option of the patched apps from KernelSU !
 
 #### You do not need to use this module. The classic mount method of revanced-magisk-module is just fine for many people.
 #### Use this only if you need to, or you are having trouble with the classic mount method.
