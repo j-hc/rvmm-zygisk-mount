@@ -3,7 +3,7 @@
 collect_rvmm() {
 	for RVMM in /data/adb/modules/*-jhc*; do
 		if [ "$RVMM" = '/data/adb/modules/*-jhc*' ]; then break; fi
-		if ! grep -Fxq "author=j-hc" "$RVMM/module.prop"; then continue; fi
+		if ! grep -Fq "j-hc" "$RVMM/module.prop"; then continue; fi
 		if [ ! -f "$RVMM/config" ]; then continue; fi
 		echo "$RVMM"
 	done

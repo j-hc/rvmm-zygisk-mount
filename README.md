@@ -4,13 +4,14 @@ Injects the mounts at the pre app specialization with Zygisk (for [revanced-magi
 
 - Supports Magisk and KernelSU
 - For now, it only supports revanced-magisk-module but can be generalized
+- If you are using revanced-magisk-module from rebanders, who completely remove my name from the modules, rvmm-zygisk-mount wont work.
 
 Fixes problems such as,
 - "Reflash needed" error after reboots
 - "Suspicious mount detected" warnings from root detector apps
 
 ## Usage
-- Make sure the modules of whichever app you want is installed from [revanced-magisk-module](revanced-magisk-module)
+- Make sure the modules of whichever app you want is installed from revanced-magisk-module
 - Flash rvmm-zygisk-mount module. It will automatically take care of everything
 - ! **Do not** put the patched apps you want in the denylist !
 

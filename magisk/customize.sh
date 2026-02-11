@@ -6,6 +6,13 @@ fi
 
 . "$MODPATH/util.sh"
 
+if [ -z "$(collect_rvmm)" ]; then
+	ui_print "* No revanced-magisk-module is installed."
+	ui_print "  Go install the modules you want first,"
+	ui_print "  then flash this module."
+	abort ""
+fi
+
 chmod -R +x "$MODPATH/bin"
 disable_unmount_modules_ksu
 
