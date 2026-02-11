@@ -5,4 +5,4 @@ policy
 *.so
 *.log
 .clangd
-magisk/bin/*/ksu_profile
+module/bin/*/ksu_profile
