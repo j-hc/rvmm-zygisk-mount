@@ -13,9 +13,17 @@ create_procs_map() {
 	: >"$1/procs_map"
 	collect_rvmm | while IFS= read -r rvmm_path; do
 		. "$rvmm_path/config"
+		if [ -z "$PKG_NAME" ]; then continue; fi
 
-		if ! BASEPATH=$(pm path "$PKG_NAME" 2>&1 </dev/null) || [ -z "$BASEPATH" ]; then continue; fi
+		if ! BASEPATH=$(pm path "$PKG_NAME" 2>&1 </dev/null) || [ -z "$BASEPATH" ]; then
+			ui_print "ERROR: $PKG_NAME is not installed. Re-flash its module and dont reboot."
+			continue
+		fi
 		RVPATH="/data/adb/rvhc/${rvmm_path##*/}.apk"
+		if [ ! -f "$RVPATH" ]; then
+			ui_print "ERROR: $RVPATH does not exist. Re-flash its module and dont reboot."
+			continue
+		fi
 
 		for s in "$PKG_NAME" "$RVPATH" "${BASEPATH##*:}"; do
 			printf '%b%s\0' "\\x$(printf '%02x' "${#s}")" "$s" >>"$1/procs_map"
@@ -31,6 +39,7 @@ disable_unmount_modules_ksu() {
 
 	collect_rvmm | while IFS= read -r rvmm_path; do
 		. "$rvmm_path/config"
+		if [ -z "$PKG_NAME" ]; then continue; fi
 
 		uid=$(dumpsys package "$PKG_NAME" 2>&1 | grep -m1 "uid")
 		uid=${uid#*=} uid=${uid%% *}
