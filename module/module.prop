@@ -1,7 +1,7 @@
 id=rvmm-zygisk-mount
 name=rvmm-zygisk-mount
-version=v2
-versionCode=2
+version=v3
+versionCode=3
 author=j-hc
 description=Mounts the RVMM (revanced-magisk-module) modules with Zygisk
 updateJson=https://raw.githubusercontent.com/j-hc/rvmm-zygisk-mount/master/update.json
