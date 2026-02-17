@@ -1,8 +1,8 @@
 #!/system/bin/sh
 
 collect_rvmm() {
-	for RVMM in /data/adb/modules/*-jhc*; do
-		if [ "$RVMM" = '/data/adb/modules/*-jhc*' ]; then break; fi
+	for RVMM in /data/adb/modules_update/*-jhc* /data/adb/modules/*-jhc*; do
+		if [ ! -d "$RVMM" ]; then continue; fi
 		if ! grep -Fq "j-hc" "$RVMM/module.prop"; then continue; fi
 		if [ ! -f "$RVMM/config" ]; then continue; fi
 		echo "$RVMM"
