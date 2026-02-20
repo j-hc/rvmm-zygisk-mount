@@ -14,7 +14,7 @@ if [ -z "$(collect_rvmm)" ]; then
 fi
 
 chmod -R +x "$MODPATH/bin"
-disable_unmount_modules_ksu
+disable_unmount_modules
 P=/data/adb/modules/rvmm-zygisk-mount
 if [ -d $P ]; then
 	create_procs_map $P

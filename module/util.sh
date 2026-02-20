@@ -34,26 +34,31 @@ create_procs_map() {
 	printf '\0' >>"$1/procs_map"
 }
 
-disable_unmount_modules_ksu() {
-	if [ -z "$KSU" ]; then return 0; fi
+disable_unmount_modules() {
+	if magisk --denylist status; then MGSK="mgsk"; fi
 
 	collect_rvmm | while IFS= read -r rvmm_path; do
 		. "$rvmm_path/config"
 		if [ -z "$PKG_NAME" ]; then continue; fi
 
-		uid=$(dumpsys package "$PKG_NAME" 2>&1 | grep -m1 "uid")
-		uid=${uid#*=} uid=${uid%% *}
-		if [ -z "$uid" ]; then
-			uid=$(dumpsys package "$PKG_NAME" 2>&1 | grep -m1 userId)
+		if [ "$KSU" ]; then
+			uid=$(dumpsys package "$PKG_NAME" 2>&1 | grep -m1 "uid")
 			uid=${uid#*=} uid=${uid%% *}
-		fi
-		if [ -z "$uid" ]; then
-			ui_print "* UID could not be found for $PKG_NAME"
-			return 1
-		fi
+			if [ -z "$uid" ]; then
+				uid=$(dumpsys package "$PKG_NAME" 2>&1 | grep -m1 userId)
+				uid=${uid#*=} uid=${uid%% *}
+			fi
+			if [ -z "$uid" ]; then
+				ui_print "* UID could not be found for $PKG_NAME"
+				return 1
+			fi
 
-		if ! OP=$("${MODPATH:?}/bin/$ARCH/ksu_profile" "$uid" "$PKG_NAME" 2>&1); then
-			ui_print "ERROR ksu_profile: $OP"
+			if ! OP=$("${MODPATH:?}/bin/$ARCH/ksu_profile" "$uid" "$PKG_NAME" 2>&1); then
+				ui_print "ERROR ksu_profile: $OP"
+			fi
+		elif [ "$MGSK" ]; then
+			magisk --denylist rm "$PKG_NAME" || :
 		fi
 	done
+	return 0
 }

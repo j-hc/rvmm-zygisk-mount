@@ -7,5 +7,5 @@ sleep 5
 MODDIR=${0%/*}
 . "$MODDIR/util.sh"
 
-disable_unmount_modules_ksu
+disable_unmount_modules
 create_procs_map "$MODDIR"
