@@ -1,6 +1,6 @@
 {
-	"version": "v4",
-	"versionCode": 4,
-	"zipUrl": "https://github.com/j-hc/rvmm-zygisk-mount/releases/latest/download/rvmm-zygisk-mount-v4.zip",
+	"version": "v5",
+	"versionCode": 5,
+	"zipUrl": "https://github.com/j-hc/rvmm-zygisk-mount/releases/latest/download/rvmm-zygisk-mount-v5.zip",
 	"changelog": "https://raw.githubusercontent.com/j-hc/rvmm-zygisk-mount/master/README.md"
 }
