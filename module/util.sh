@@ -15,6 +15,13 @@ create_procs_map() {
 		. "$rvmm_path/config"
 		if [ -z "$PKG_NAME" ]; then continue; fi
 
+		grep -F "$PKG_NAME" /proc/mounts | while read -r line; do
+			mp=${line#* } mp=${mp%% *} mp=${mp%%\\*}
+			ui_print "* Unmount '$mp'"
+			umount -l "$mp"
+		done
+		am force-stop "$PKG_NAME"
+
 		if ! BASEPATH=$(pm path "$PKG_NAME" 2>&1 </dev/null) || [ -z "$BASEPATH" ]; then
 			ui_print "ERROR: $PKG_NAME is not installed. Re-flash its module and dont reboot."
 			continue
