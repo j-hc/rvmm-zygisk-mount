@@ -5,6 +5,10 @@ collect_rvmm() {
 		if [ ! -d "$RVMM" ]; then continue; fi
 		if ! grep -Fq "j-hc" "$RVMM/module.prop"; then continue; fi
 		if [ ! -f "$RVMM/config" ]; then continue; fi
+		if [ -f "$RVMM/remove" ] ||
+			[ -f "$(echo "$RVMM" | sed 's/modules_update/modules/')/remove" ]; then
+			continue
+		fi
 		echo "$RVMM"
 	done
 }
@@ -42,7 +46,7 @@ create_procs_map() {
 }
 
 disable_unmount_modules() {
-	if magisk --denylist status; then MGSK="mgsk"; fi
+	if magisk --denylist status >/dev/null 2>&1; then MGSK="mgsk"; fi
 
 	collect_rvmm | while IFS= read -r rvmm_path; do
 		. "$rvmm_path/config"
