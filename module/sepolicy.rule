@@ -1,2 +1,0 @@
-allow zygote apk_data_file dir search;
-allow zygote apk_data_file file mounton;
