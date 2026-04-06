@@ -1,14 +1,29 @@
 #!/system/bin/sh
 
+is_valid_rvmm() {
+	if [ ! -d "$1" ]; then return 1; fi
+	if ! grep -Fq "j-hc" "$1/module.prop"; then return 1; fi
+	if [ ! -f "$1/config" ]; then return 1; fi
+	return 0
+}
+
 collect_rvmm() {
-	for RVMM in /data/adb/modules_update/*-jhc* /data/adb/modules/*-jhc*; do
-		if [ ! -d "$RVMM" ]; then continue; fi
-		if ! grep -Fq "j-hc" "$RVMM/module.prop"; then continue; fi
-		if [ ! -f "$RVMM/config" ]; then continue; fi
-		if [ -f "$RVMM/remove" ] ||
-			[ -f "$(echo "$RVMM" | sed 's/modules_update/modules/')/remove" ]; then
-			continue
-		fi
+	for RVMM in /data/adb/modules_update/*-jhc*; do
+		if ! is_valid_rvmm "$RVMM"; then continue; fi
+
+		MPATH=$(echo "$RVMM" | sed 's/modules_update/modules/')
+		if [ -f "$MPATH/remove" ]; then continue; fi
+
+		echo "$RVMM"
+	done
+
+	for RVMM in /data/adb/modules/*-jhc*; do
+		if ! is_valid_rvmm "$RVMM"; then continue; fi
+		if [ -f "$MPATH/remove" ]; then continue; fi
+
+		MUPATH=$(echo "$RVMM" | sed 's/modules/modules_update/')
+		if [ -d "$MUPATH" ]; then continue; fi
+
 		echo "$RVMM"
 	done
 }
