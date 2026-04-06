@@ -15,6 +15,27 @@
 #define LOGD(fmt, ...) \
     __android_log_print(ANDROID_LOG_DEBUG, "rvmm-zygisk-mount", "[%d] " fmt, __LINE__, ##__VA_ARGS__)
 
+static bool sendProcInfo(int fd, const char* proc) {
+    pid_t pid = getpid();
+    if (write(fd, &pid, sizeof(pid)) <= 0) {
+        LOGD("ERROR write: %s", strerror(errno));
+        return false;
+    }
+
+    unsigned int proc_len = strlen(proc) + 1;
+    if (write(fd, &proc_len, sizeof(proc_len)) <= 0) {
+        LOGD("ERROR write: %s", strerror(errno));
+        return false;
+    }
+
+    if (write(fd, proc, proc_len) <= 0) {
+        LOGD("ERROR write: %s", strerror(errno));
+        return false;
+    }
+
+    return true;
+}
+
 class RVMMZygiskMount : public zygisk::ModuleBase {
    public:
     void onLoad(zygisk::Api* api, JNIEnv* env) override {
@@ -26,30 +47,10 @@ class RVMMZygiskMount : public zygisk::ModuleBase {
         const char* proc = env->GetStringUTFChars(args->nice_name, NULL);
 
         int fd = api->connectCompanion();
+        sendProcInfo(fd, proc);
 
-        pid_t pid = getpid();
-        if (write(fd, &pid, sizeof(pid)) <= 0) {
-            LOGD("ERROR write: %s", strerror(errno));
-            return;
-        }
-
-        unsigned int proc_len = strlen(proc) + 1;
-        if (write(fd, &proc_len, sizeof(proc_len)) <= 0) {
-            LOGD("ERROR write: %s", strerror(errno));
-            return;
-        }
-
-        if (write(fd, proc, proc_len) <= 0) {
-            LOGD("ERROR write: %s", strerror(errno));
-            return;
-        }
-
+        close(fd);
         env->ReleaseStringUTFChars(args->nice_name, proc);
-        char d;
-        if (read(fd, &d, sizeof(d)) <= 0) {
-            LOGD("ERROR read: %s", strerror(errno));
-        }
-
         api->setOption(zygisk::DLCLOSE_MODULE_LIBRARY);
     }
 
@@ -109,6 +110,8 @@ static char* readFileToNullStr(const char* path) {
         ssize_t ret = read(fd, buf + size_read, st.st_size - size_read);
         if (ret < 0) {
             LOGD("ERROR read: %s", strerror(errno));
+            free(buf);
+            buf = nullptr;
             goto defer;
         } else {
             size_read += ret;
@@ -121,81 +124,76 @@ defer:
     return buf;
 }
 
-static void injectMount(pid_t pid, const char* src, const char* dst) {
+static bool injectMount(const char* src, const char* dst, pid_t pid) {
     // int ns_fd = syscall(SYS_pidfd_open, pid, 0);
     // if (ns_fd == -1) {
     //     LOGD("ERROR pidfd_open: %s", strerror(errno));
-    //     return;
+    //     return false;
     // }
 
-    {
-        char ns_path[64];
-        snprintf(ns_path, ARR_LEN(ns_path), "/proc/%d/ns/mnt", pid);
+    char ns_path[64];
+    snprintf(ns_path, ARR_LEN(ns_path), "/proc/%d/ns/mnt", pid);
 
-        int ns_fd = open(ns_path, O_RDONLY);
-        if (ns_fd == -1) {
-            LOGD("ERROR open (%s): %s", ns_path, strerror(errno));
-            return;
-        }
+    int ns_fd = open(ns_path, O_RDONLY);
+    if (ns_fd == -1) {
+        LOGD("ERROR open (%s): %s", ns_path, strerror(errno));
+        return false;
+    }
 
-        int r = setns(ns_fd, CLONE_NEWNS);
-        close(ns_fd);
-        if (r == -1) {
-            LOGD("ERROR setns: %s", strerror(errno));
-            return;
-        }
+    int r = setns(ns_fd, CLONE_NEWNS);
+    close(ns_fd);
+    if (r == -1) {
+        LOGD("ERROR setns: %s", strerror(errno));
+        return false;
     }
 
     if (mount(src, dst, NULL, MS_BIND, NULL) != 0) {
         LOGD("ERROR mount: %s", strerror(errno));
-        return;
+        return false;
     }
+
+    return true;
 }
 
-static void run(const char* procs_map, int fd) {
-    pid_t pid;
-    if (read(fd, &pid, sizeof(pid)) <= 0) {
+static bool receiveProcInfo(int fd, const char** src, const char** dst, pid_t* pid) {
+    if (read(fd, pid, sizeof(*pid)) <= 0) {
         LOGD("ERROR read: %s", strerror(errno));
-        return;
+        return false;
     }
 
     unsigned int proc_len;
     if (read(fd, &proc_len, sizeof(proc_len)) <= 0) {
         LOGD("ERROR read: %s", strerror(errno));
-        return;
+        return false;
     }
 
     char proc[proc_len];
     if (read(fd, proc, proc_len) <= 0) {
         LOGD("ERROR read: %s", strerror(errno));
-        return;
+        return false;
     }
 
-    const char *src, *dst;
-    if (!getMountSrcDst(procs_map, proc, &src, &dst)) return;
-    LOGD("%s: %s -> %s", proc, src, dst);
+    char* procs_map = readFileToNullStr("/data/adb/modules/rvmm-zygisk-mount/procs_map");
+    if (procs_map == nullptr) return false;
 
-    pid_t child = fork();
-    if (child == -1) {
-        LOGD("ERROR fork: %s", strerror(errno));
-        return;
-    }
-    if (child == 0) {
-        injectMount(pid, src, dst);
-        exit(0);
-    }
+    bool r = getMountSrcDst(procs_map, proc, src, dst);
+    free(procs_map);
+    if (!r) return false;
+
+    LOGD("%s: %s -> %s", proc, *src, *dst);
+    return true;
 }
 
 static void companionHandler(int fd) {
-    char* procs_map = readFileToNullStr("/data/adb/modules/rvmm-zygisk-mount/procs_map");
-    if (procs_map != nullptr) {
-        run(procs_map, fd);
-        free(procs_map);
-    }
+    const char *src, *dst;
+    pid_t pid;
+    if (!receiveProcInfo(fd, &src, &dst, &pid)) return;
 
-    char d = 0;
-    if (write(fd, &d, sizeof(d)) <= 0) {
-        LOGD("ERROR write: %s", strerror(errno));
+    pid_t child = fork();
+    if (child == 0) {
+        injectMount(src, dst, pid);
+    } else if (child == -1) {
+        LOGD("ERROR fork: %s", strerror(errno));
     }
 }
 
