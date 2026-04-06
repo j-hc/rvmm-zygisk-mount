@@ -122,17 +122,30 @@ defer:
 }
 
 static void injectMount(pid_t pid, const char* src, const char* dst) {
-    int ns_fd = syscall(SYS_pidfd_open, pid, 0);
-    if (ns_fd == -1) {
-        LOGD("ERROR pidfd_open: %s", strerror(errno));
-        return;
+    // int ns_fd = syscall(SYS_pidfd_open, pid, 0);
+    // if (ns_fd == -1) {
+    //     LOGD("ERROR pidfd_open: %s", strerror(errno));
+    //     return;
+    // }
+
+    {
+        char ns_path[64];
+        snprintf(ns_path, ARR_LEN(ns_path), "/proc/%d/ns/mnt", pid);
+
+        int ns_fd = open(ns_path, O_RDONLY);
+        if (ns_fd == -1) {
+            LOGD("ERROR open (%s): %s", ns_path, strerror(errno));
+            return;
+        }
+
+        int r = setns(ns_fd, CLONE_NEWNS);
+        close(ns_fd);
+        if (r == -1) {
+            LOGD("ERROR setns: %s", strerror(errno));
+            return;
+        }
     }
-    int r = setns(ns_fd, CLONE_NEWNS);
-    close(ns_fd);
-    if (r == -1) {
-        LOGD("ERROR setns: %s", strerror(errno));
-        return;
-    }
+
     if (mount(src, dst, NULL, MS_BIND, NULL) != 0) {
         LOGD("ERROR mount: %s", strerror(errno));
         return;
