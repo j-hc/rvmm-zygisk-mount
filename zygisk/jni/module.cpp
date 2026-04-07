@@ -43,6 +43,11 @@ class RVMMZygiskMount : public zygisk::ModuleBase {
         this->env = env;
     }
 
+    void preServerSpecialize(zygisk::ServerSpecializeArgs* args) override {
+        (void)args;
+        api->setOption(zygisk::DLCLOSE_MODULE_LIBRARY);
+    }
+
     void preAppSpecialize(zygisk::AppSpecializeArgs* args) override {
         const char* proc = env->GetStringUTFChars(args->nice_name, NULL);
 
@@ -192,6 +197,7 @@ static void companionHandler(int fd) {
     pid_t child = fork();
     if (child == 0) {
         injectMount(src, dst, pid);
+        exit(0);
     } else if (child == -1) {
         LOGD("ERROR fork: %s", strerror(errno));
     }
