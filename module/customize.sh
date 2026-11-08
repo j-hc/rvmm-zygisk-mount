@@ -1,5 +1,6 @@
 #!/system/bin/sh
 
+MODDIR="$MODPATH"
 if [ -n "$KSU" ]; then
 	ui_print "* KernelSU detected. Make sure you are using a Zygisk module!"
 fi
@@ -13,19 +14,15 @@ if [ -z "$(collect_rvmm)" ]; then
 	abort ""
 fi
 
-chmod -R +x "$MODPATH/bin"
-disable_unmount_modules
-P=/data/adb/modules/rvmm-zygisk-mount
-if [ -d $P ]; then
-	create_procs_map $P
+chmod -R +x "$MODPATH/bin" 2>/dev/null || :
+disable_unmount_modules "$MODPATH"
+
+create_procs_map "$MODPATH"
+if [ -d /data/adb/modules/rvmm-zygisk-mount ]; then
+	create_procs_map /data/adb/modules/rvmm-zygisk-mount
 fi
 
 chmod +x "$MODPATH/service.sh"
-REAPPLY=/data/data/com.termux/files/usr/bin/
-if [ -d $REAPPLY ]; then
-	echo "su -c 'MODDIR=$MODPATH /data/adb/modules/rvmm-zygisk-mount/service.sh'; echo Done.;" >$REAPPLY/rvmm-zygisk-mount
-	chmod 777 $REAPPLY/rvmm-zygisk-mount
-fi
 
 ui_print "* Done"
 ui_print "  by j-hc (github.com/j-hc)"

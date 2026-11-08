@@ -2,10 +2,10 @@
 
 until [ "$(getprop sys.boot_completed)" = 1 ]; do sleep 1; done
 until [ -d "/sdcard/Android" ]; do sleep 1; done
-sleep 5
+sleep 3
 
 MODDIR=${0%/*}
 . "$MODDIR/util.sh"
 
-disable_unmount_modules
+disable_unmount_modules "$MODDIR"
 create_procs_map "$MODDIR"

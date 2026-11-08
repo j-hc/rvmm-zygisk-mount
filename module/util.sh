@@ -19,7 +19,7 @@ collect_rvmm() {
 
 	for RVMM in /data/adb/modules/*-jhc*; do
 		if ! is_valid_rvmm "$RVMM"; then continue; fi
-		if [ -f "$MPATH/remove" ]; then continue; fi
+		if [ -f "$RVMM/remove" ]; then continue; fi
 
 		MUPATH=$(echo "$RVMM" | sed 's/modules/modules_update/')
 		if [ -d "$MUPATH" ]; then continue; fi
@@ -45,29 +45,40 @@ create_procs_map() {
 			ui_print "ERROR: $PKG_NAME is not installed. Re-flash its module and dont reboot."
 			continue
 		fi
+		BASEPATH=$(echo "$BASEPATH" | grep -m1 "base.apk")
+		BASEPATH=${BASEPATH##*:}
+
 		RVPATH="/data/adb/rvhc/${rvmm_path##*/}.apk"
 		if [ ! -f "$RVPATH" ]; then
 			ui_print "ERROR: $RVPATH does not exist. Re-flash its module and dont reboot."
 			continue
 		fi
 
-		for s in "$PKG_NAME" "$RVPATH" "${BASEPATH##*:}"; do
+		chcon u:object_r:apk_data_file:s0 "$RVPATH" 2>/dev/null || :
+
+		for s in "$PKG_NAME" "$RVPATH" "$BASEPATH"; do
 			printf '%b%s\0' "\\x$(printf '%02x' "${#s}")" "$s" >>"$1/procs_map"
 		done
 
 		ui_print "* Applied for $PKG_NAME"
 	done
 	printf '\0' >>"$1/procs_map"
+	chcon u:object_r:apk_data_file:s0 "$1/procs_map" 2>/dev/null || :
 }
 
 disable_unmount_modules() {
 	if magisk --denylist status >/dev/null 2>&1; then MGSK="mgsk"; fi
+	BASE_DIR="${1:-${MODPATH:-$MODDIR}}"
+	if [ -z "$ARCH" ]; then
+		ARCH=$(getprop ro.product.cpu.abi | cut -d'-' -f1)
+		[ "$ARCH" = "armeabi" ] && ARCH="arm"
+	fi
 
 	collect_rvmm | while IFS= read -r rvmm_path; do
 		. "$rvmm_path/config"
 		if [ -z "$PKG_NAME" ]; then continue; fi
 
-		if [ "$KSU" ]; then
+		if [ "$KSU" ] || [ -f "/data/adb/ksu/bin/ksud" ]; then
 			uid=$(dumpsys package "$PKG_NAME" 2>&1 | grep -m1 "uid")
 			uid=${uid#*=} uid=${uid%% *}
 			if [ -z "$uid" ]; then
@@ -79,8 +90,10 @@ disable_unmount_modules() {
 				return 1
 			fi
 
-			if ! OP=$("${MODPATH:?}/bin/$ARCH/ksu_profile" "$uid" "$PKG_NAME" 2>&1); then
-				ui_print "ERROR ksu_profile: $OP"
+			if [ -f "$BASE_DIR/bin/$ARCH/ksu_profile" ]; then
+				if ! OP=$("$BASE_DIR/bin/$ARCH/ksu_profile" "$uid" "$PKG_NAME" 2>&1); then
+					ui_print "ERROR ksu_profile: $OP"
+				fi
 			fi
 		elif [ "$MGSK" ]; then
 			magisk --denylist rm "$PKG_NAME" || :
