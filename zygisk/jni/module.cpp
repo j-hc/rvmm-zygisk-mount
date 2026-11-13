@@ -7,6 +7,7 @@
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "zygisk.hpp"
@@ -96,13 +97,13 @@ static char* readFileToNullStr(const char* path) {
 
     int fd = open(path, O_RDONLY);
     if (unlikely(fd == -1)) {
-        LOGD("ERROR open: %s", strerror(errno));
+        // LOGD("ERROR open(%s): %s", path, strerror(errno));
         goto defer;
     }
 
     struct stat st;
     if (unlikely(fstat(fd, &st) == -1)) {
-        LOGD("ERROR fstat: %s", strerror(errno));
+        LOGD("ERROR fstat(%s): %s", path, strerror(errno));
         goto defer;
     }
     if (unlikely(st.st_size <= 0)) {
@@ -114,7 +115,7 @@ static char* readFileToNullStr(const char* path) {
     while (size_read < st.st_size) {
         ssize_t ret = read(fd, buf + size_read, st.st_size - size_read);
         if (unlikely(ret < 0)) {
-            LOGD("ERROR read: %s", strerror(errno));
+            LOGD("ERROR read(%s): %s", path, strerror(errno));
             free(buf);
             buf = nullptr;
             goto defer;
@@ -154,7 +155,7 @@ static bool injectMount(const char* src, const char* dst, pid_t pid) {
     return true;
 }
 
-static bool receiveProcInfo(int fd, const char** src, const char** dst, pid_t* pid) {
+static bool receiveProcInfo(int fd, const char** src, const char** dst, pid_t* pid, char* procs_map) {
     ssize_t r;
 
     r = read(fd, pid, sizeof(*pid));
@@ -176,22 +177,18 @@ static bool receiveProcInfo(int fd, const char** src, const char** dst, pid_t* p
             proc_len += r;
         }
     }
-
-    char* procs_map = readFileToNullStr("/data/adb/modules/rvmm-zygisk-mount/procs_map");
-    if (procs_map == nullptr) return false;
-
-    bool s = getMountSrcDst(procs_map, proc, proc_len - 1, src, dst);
-    free(procs_map);
-    if (!s) return false;
-
+    if (!getMountSrcDst(procs_map, proc, proc_len - 1, src, dst)) return false;
     LOGD("%s: %s -> %s", proc, *src, *dst);
     return true;
 }
 
 static void companionHandler(int fd) {
+    char* procs_map = readFileToNullStr("/data/adb/modules/rvmm-zygisk-mount/procs_map");
+    if (procs_map == nullptr) return;
+
     const char *src, *dst;
     pid_t pid;
-    if (!receiveProcInfo(fd, &src, &dst, &pid)) return;
+    if (!receiveProcInfo(fd, &src, &dst, &pid, procs_map)) return;
 
     pid_t child = fork();
     if (child == 0) {
@@ -199,7 +196,12 @@ static void companionHandler(int fd) {
         exit(0);
     } else if (child == -1) {
         LOGD("ERROR fork: %s", strerror(errno));
+    } else {
+        int s;
+        waitpid(child, &s, 0);
     }
+
+    free(procs_map);
 }
 
 REGISTER_ZYGISK_MODULE(RVMMZygiskMount)
